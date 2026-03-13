@@ -5,12 +5,13 @@ import { ProgressRing } from "@/components/shared/ProgressRing";
 import { Progress } from "@/components/ui/progress";
 import {
   employees, dashboardStats, onboardingTasks, exitTasks,
-  getTasksByDepartment, getDepartmentClearance,
+  getTasksByDepartment,
 } from "@/data/mockData";
 import {
   Users, UserPlus, Clock, AlertCircle, ArrowRight, CalendarDays, LogOut, Building2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useExitDataWithRealtime } from "@/hooks/useExitData";
 
 const Dashboard = () => {
   const onboardingEmployees = employees.filter((e) => e.status === "onboarding");
@@ -19,22 +20,27 @@ const Dashboard = () => {
   const pendingTasks = allTasks.filter((t) => t.status === "pending");
   const deptStats = getTasksByDepartment(allTasks);
 
-  // Exit clearance per employee
-  const exitClearanceData = noticePeriodEmployees.map((emp) => {
-    const tasks = exitTasks.filter((t) => t.employeeId === emp.id);
-    const completed = tasks.filter((t) => t.status === "completed").length;
-    const progress = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
-    return { emp, progress, completed, total: tasks.length };
-  });
+  // Real-time exit data from Supabase (falls back to mock if empty)
+  const { exitClearanceData: supaExitData, isLoading: exitLoading } = useExitDataWithRealtime();
+
+  // Fallback to mock data if Supabase tables are empty
+  const exitClearanceData = supaExitData.length > 0
+    ? supaExitData
+    : noticePeriodEmployees.map((emp) => {
+        const tasks = exitTasks.filter((t) => t.employeeId === emp.id);
+        const completed = tasks.filter((t) => t.status === "completed").length;
+        const progress = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+        return { id: emp.id, name: emp.name, avatar: emp.avatar, lastWorkingDay: emp.lastWorkingDay || "", progress, completed, total: tasks.length };
+      });
 
   return (
     <AppLayout title="Dashboard" subtitle="Welcome back! Here's your HR overview.">
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <MetricCard title="Total Employees" value={dashboardStats.totalEmployees} icon={Users} subtitle={`${dashboardStats.activeEmployees} active`} />
-        <MetricCard title="Onboarding" value={dashboardStats.onboarding} icon={UserPlus} subtitle="New joiners this month" iconClassName="bg-info/10 text-info" />
-        <MetricCard title="Notice Period" value={dashboardStats.noticePeriod} icon={Clock} subtitle="Serving notice" iconClassName="bg-warning/10 text-warning" />
-        <MetricCard title="Pending Tasks" value={pendingTasks.length} icon={AlertCircle} subtitle="Across all departments" iconClassName="bg-destructive/10 text-destructive" />
+        <MetricCard title="Total Employees" value={dashboardStats.totalEmployees} icon={Users} subtitle={`${dashboardStats.activeEmployees} active`} href="/employees" />
+        <MetricCard title="Onboarding" value={dashboardStats.onboarding} icon={UserPlus} subtitle="New joiners this month" iconClassName="bg-info/10 text-info" href="/onboarding" />
+        <MetricCard title="Notice Period" value={dashboardStats.noticePeriod} icon={Clock} subtitle="Serving notice" iconClassName="bg-warning/10 text-warning" href="/exit" />
+        <MetricCard title="Pending Tasks" value={pendingTasks.length} icon={AlertCircle} subtitle="Across all departments" iconClassName="bg-destructive/10 text-destructive" href="/tasks" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -120,7 +126,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Exit Clearance Progress */}
+        {/* Exit Clearance Progress — real-time from Supabase */}
         <div className="bg-card rounded-xl border border-border p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-display font-semibold text-foreground">Exit Clearance Progress</h2>
@@ -128,20 +134,22 @@ const Dashboard = () => {
               View all <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-          {exitClearanceData.length === 0 ? (
+          {exitLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : exitClearanceData.length === 0 ? (
             <p className="text-sm text-muted-foreground">No employees in exit process</p>
           ) : (
             <div className="space-y-4">
-              {exitClearanceData.map(({ emp, progress, completed, total }) => (
-                <div key={emp.id} className="space-y-2">
+              {exitClearanceData.map(({ id, name, avatar, lastWorkingDay, progress, completed, total }) => (
+                <div key={id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-warning/10 text-warning flex items-center justify-center text-xs font-semibold shrink-0">
-                        {emp.avatar}
+                        {avatar}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">{emp.name}</p>
-                        <p className="text-[10px] text-muted-foreground">LWD: {emp.lastWorkingDay}</p>
+                        <p className="text-sm font-medium text-foreground">{name}</p>
+                        <p className="text-[10px] text-muted-foreground">LWD: {lastWorkingDay}</p>
                       </div>
                     </div>
                     <span className="text-xs font-semibold text-foreground">{progress}%</span>
