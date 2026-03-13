@@ -1,5 +1,6 @@
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface MetricCardProps {
   title: string;
@@ -9,11 +10,16 @@ interface MetricCardProps {
   trend?: { value: string; positive: boolean };
   className?: string;
   iconClassName?: string;
+  href?: string;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, trend, className, iconClassName }: MetricCardProps) {
-  return (
-    <div className={cn("bg-card rounded-xl border border-border p-5 animate-fade-in", className)}>
+export function MetricCard({ title, value, subtitle, icon: Icon, trend, className, iconClassName, href }: MetricCardProps) {
+  const content = (
+    <div className={cn(
+      "bg-card rounded-xl border border-border p-5 animate-fade-in transition-all duration-200",
+      href && "hover:shadow-lg hover:scale-[1.02] hover:border-primary/20 cursor-pointer",
+      className
+    )}>
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground font-medium">{title}</p>
@@ -31,4 +37,10 @@ export function MetricCard({ title, value, subtitle, icon: Icon, trend, classNam
       </div>
     </div>
   );
+
+  if (href) {
+    return <Link to={href} className="block">{content}</Link>;
+  }
+
+  return content;
 }
